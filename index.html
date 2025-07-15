@@ -1,4 +1,131 @@
-<!DOCTYPE html>
+<!DOCTYPE<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Drum Pad</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; background: #222; color: white; }
+    button {
+      margin: 10px;
+      padding: 20px;
+      font-size: 20px;
+      border: none;
+      border-radius: 10px;
+      background: #444;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover { background: #666; }
+  </style>
+</head>
+<body>
+  <h1>Drum Pad</h1>
+  <button onclick="playPad('sounds/kick1.mp3')">Kick 1</button>
+  <button onclick="playPad('sounds/kick2.mp3')">Kick 2</button>
+  <button onclick="playPad('sounds/snare1.mp3')">Snare 1</button>
+  <button onclick="playPad('sounds/snare2.mp3')">Snare 2</button>
+  <button onclick="playPad('sounds/hihat1.mp3')">HiHat 1</button>
+  <button onclick="playPad('sounds/hihat2.mp3')">HiHat 2</button>
+  <br><br>
+  <button id="recordBtn" onclick="toggleRecording()">Record</button>
+  <button onclick="playLoop()">Play Loop</button>
+  <button onclick="stopLoop()">Stop Loop</button>
+  <button id="overdubBtn" onclick="toggleOverdub()" disabled>Overdub</button>
+  
+  <script>
+    let isRecording = false;
+    let recordedNotes = [];
+    let recordStart = 0;
+    let loopInterval = null;
+    let loopLength = 0;
+    let isLooping = false;
+    let isOverdubbing = false;
+    let overdubStart = 0;
+
+    function playPad(path) {
+      const audio = new Audio(path);
+      audio.play();
+      // If recording, save the hit
+      if (isRecording) {
+        const now = Date.now();
+        recordedNotes.push({
+          path: path,
+          time: now - recordStart
+        });
+      }
+      // If overdubbing, save new hit relative to loop
+      if (isOverdubbing && isLooping) {
+        const now = Date.now();
+        let posInLoop = (now - overdubStart) % loopLength;
+        recordedNotes.push({
+          path: path,
+          time: posInLoop
+        });
+      }
+    }
+
+    function toggleRecording() {
+      isRecording = !isRecording;
+      const btn = document.getElementById("recordBtn");
+      const overdubBtn = document.getElementById("overdubBtn");
+      if (isRecording) {
+        recordedNotes = [];
+        recordStart = Date.now();
+        btn.textContent = "Stop Recording";
+        overdubBtn.disabled = true;
+        stopLoop();
+      } else {
+        btn.textContent = "Record";
+        if (recordedNotes.length) {
+          // Calculate total loop length
+          loopLength = recordedNotes[recordedNotes.length - 1].time + 500; // Add a small buffer
+          overdubBtn.disabled = false;
+        }
+      }
+    }
+
+    function playLoop() {
+      if (recordedNotes.length === 0) return;
+      stopLoop(); // Make sure we don't double up loops
+      isLooping = true;
+      overdubStart = Date.now();
+      function playNotes() {
+        for (let note of recordedNotes) {
+          setTimeout(() => {
+            playPad(note.path);
+          }, note.time);
+        }
+      }
+      playNotes();
+      loopInterval = setInterval(() => {
+        overdubStart = Date.now();
+        playNotes();
+      }, loopLength);
+    }
+
+    function stopLoop() {
+      if (loopInterval) {
+        clearInterval(loopInterval);
+        loopInterval = null;
+      }
+      isLooping = false;
+      isOverdubbing = false;
+      document.getElementById("overdubBtn").textContent = "Overdub";
+    }
+
+    function toggleOverdub() {
+      if (!isLooping) return;
+      isOverdubbing = !isOverdubbing;
+      const overdubBtn = document.getElementById("overdubBtn");
+      overdubBtn.textContent = isOverdubbing ? "Stop Overdub" : "Overdub";
+      if (isOverdubbing) {
+        overdubStart = Date.now();
+      }
+    }
+  </script>
+</body>
+</html>
+ html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
