@@ -4,50 +4,32 @@
   <meta charset="UTF-8">
   <title>Drum Pad</title>
   <style>
-    body {
-      font-family: sans-serif;
-      text-align: center;
-      background: #111;
-      color: white;
-      padding-top: 40px;
-    }
-    h1 {
-      margin-bottom: 30px;
-    }
-    .pad {
-      display: grid;
-      grid-template-columns: repeat(3, 100px);
-      gap: 20px;
-      justify-content: center;
-    }
+    body { font-family: sans-serif; text-align: center; background: #222; color: white; }
     button {
+      margin: 10px;
       padding: 20px;
-      font-size: 16px;
+      font-size: 20px;
       border: none;
       border-radius: 10px;
-      background-color: #444;
+      background: #444;
       color: white;
       cursor: pointer;
     }
-    button:hover {
-      background-color: #666;
-    }
+    button:hover { background: #666; }
   </style>
 </head>
 <body>
-  <h1>🥁 Stevie's Drum Pad</h1>
-  <div class="pad">
-    <button onclick="new Audio('https://github.com/steviepens/drumpad/sounds/kick1.mp3').play()">Kick1</button>
-    <button onclick="playSound('https://cdn.pixabay.com/download/audio/2022/03/15/audio_befde51b6b.mp3?filename=snare-1-112206.mp3')">Snare</button>
-    <button onclick="playSound('https://cdn.pixabay.com/download/audio/2022/03/15/audio_1f25aa0d24.mp3?filename=clap-1-112208.mp3')">Clap</button>
-    <button onclick="playSound('https://cdn.pixabay.com/download/audio/2022/03/15/audio_5a95fc58a3.mp3?filename=hihat-1-112207.mp3')">HiHat</button>
-    <button onclick="playSound('https://cdn.pixabay.com/download/audio/2022/07/31/audio_6008e03d4a.mp3?filename=cowbell-114121.mp3')">Cowbell</button>
-    <button onclick="playSound('https://cdn.pixabay.com/download/audio/2023/03/02/audio_e3d7a50709.mp3?filename=bass-113221.mp3')">Bass</button>
-  </div>
+  <h1>Drum Pad</h1>
+  <button onclick="playSound('sounds/kick1.mp3')">Kick 1</button>
+  <button onclick="playSound('sounds/kick2.mp3')">Kick 2</button>
+  <button onclick="playSound('sounds/snare1.mp3')">Snare 1</button>
+  <button onclick="playSound('sounds/snare2.mp3')">Snare 2</button>
+  <button onclick="playSound('sounds/hihat1.mp3')">HiHat 1</button>
+  <button onclick="playSound('sounds/hihat2.mp3')">HiHat 2</button>
 
   <script>
-    function playSound(url) {
-      const audio = new Audio(url);
+    function playSound(path) {
+      const audio = new Audio(path);
       audio.play();
     }
   </script>
