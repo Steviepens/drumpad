@@ -139,38 +139,70 @@
   let overdubLayers = []; // array of {notes: [...]}
   let baseNotes = [];     // original sequence
 
-  // Keep track of ALL timeouts (drum & metronome) for immediate clearing
+  // Keep track of ALL timeouts (drum hits)
   let activeTimeouts = [];
 
-  function playPad(path) {
-    const audio = new Audio(path);
-    audio.play();
+  // --- PRELOAD ALL SAMPLES ---
+  const padPaths = [
+    'sounds/kick1.mp3',
+    'sounds/kick2.mp3',
+    'sounds/snare1.mp3',
+    'sounds/snare2.mp3',
+    'sounds/hihat1.mp3',
+    'sounds/hihat2.mp3',
+    'sounds/kick3.mp3',
+    'sounds/kick4.mp3',
+    'sounds/snare3.mp3',
+    'sounds/705473__samanthamayirwin_music__e-minor-chord-piano2.mp3',
+    'sounds/705472__samanthamayirwin_music__d-major-chord-piano2.mp3',
+    'sounds/705474__samanthamayirwin_music__g-major-chord-piano2.mp3',
+    'sounds/191958__seidhepriest__metronome-tick-bellish.wav'
+  ];
 
-    // RECORD mode (initial take)
+  const audioBuffers = {};
+  for (const path of padPaths) {
+    const audio = new Audio(path);
+    audio.load();
+    audioBuffers[path] = audio;
+  }
+
+  function playPad(path) {
+    // Always create a clone so overlapping hits work!
+    if (audioBuffers[path]) {
+      const clone = audioBuffers[path].cloneNode(true);
+      clone.play();
+    } else {
+      const audio = new Audio(path);
+      audio.play();
+    }
+
+    // RECORD mode (initial take) - Only record if NOT metronome
     if (isRecording) {
-      const now = Date.now();
-      let noteTime = now - recordStart;
-      if (quantizeOn) {
-        noteTime = quantizeTime(noteTime, loopLength);
+      if (!path.includes('metronome')) {
+        const now = Date.now();
+        let noteTime = now - recordStart;
+        if (quantizeOn) {
+          noteTime = quantizeTime(noteTime, loopLength);
+        }
+        recordedNotes.push({ path: path, time: noteTime });
       }
-      recordedNotes.push({ path: path, time: noteTime });
     }
 
     // OVERDUB mode
     if (isOverdubbing && isLooping) {
-      const now = Date.now();
-      let posInLoop = (now - overdubStart) % loopLength;
-      if (quantizeOn) {
-        posInLoop = quantizeTime(posInLoop, loopLength);
+      if (!path.includes('metronome')) {
+        const now = Date.now();
+        let posInLoop = (now - overdubStart) % loopLength;
+        if (quantizeOn) {
+          posInLoop = quantizeTime(posInLoop, loopLength);
+        }
+        if (overdubLayers.length === 0) overdubLayers.push({notes:[]});
+        overdubLayers[overdubLayers.length-1].notes.push({ path: path, time: posInLoop });
       }
-      // Store this hit in the current overdub layer
-      if (overdubLayers.length === 0) overdubLayers.push({notes:[]});
-      overdubLayers[overdubLayers.length-1].notes.push({ path: path, time: posInLoop });
     }
   }
 
   function quantizeTime(ms, length) {
-    // Quantize ms to the nearest division (e.g., 16th note)
     if (length === 0) return ms;
     const beat = length / quantizeDivision;
     return Math.round(ms / beat) * beat;
@@ -198,7 +230,6 @@
     } else {
       btn.textContent = "Record";
       if (recordedNotes.length) {
-        // Calculate loop length
         loopLength = recordedNotes[recordedNotes.length - 1].time + 500;
         baseNotes = recordedNotes.slice();
         overdubLayers = [];
@@ -210,7 +241,7 @@
 
   function playLoop() {
     if (baseNotes.length === 0) return;
-    stopLoop(); // Stop previous loops/metronomes
+    stopLoop();
     isLooping = true;
     overdubStart = Date.now();
     playFullNotes();
@@ -218,28 +249,21 @@
       overdubStart = Date.now();
       playFullNotes();
     }, loopLength);
-
-    if (metronomeOn) {
-      startMetronome();
-    }
   }
 
   function stopLoop() {
-    // Immediate stop: kill intervals & scheduled hits/clicks
     if (loopInterval) clearInterval(loopInterval);
-    if (metronomeInterval) clearInterval(metronomeInterval);
     loopInterval = null;
-    metronomeInterval = null;
     isLooping = false;
     isOverdubbing = false;
     document.getElementById("overdubBtn").textContent = "Overdub";
     clearAllTimeouts();
+    // Don't stop the metronome here! It's independent now
     const flash = document.getElementById("metronomeFlash");
     if (flash) flash.style.background = "#34365a";
   }
 
   function playFullNotes() {
-    // Play base + all overdub layers
     const allNotes = baseNotes.concat(...overdubLayers.map(l => l.notes));
     for (let note of allNotes) {
       const t = setTimeout(() => { playPad(note.path); }, note.time);
@@ -253,11 +277,10 @@
     const overdubBtn = document.getElementById("overdubBtn");
     if (isOverdubbing) {
       overdubBtn.textContent = "Stop Overdub";
-      overdubLayers.push({notes:[]}); // Start a new layer
+      overdubLayers.push({notes:[]});
       overdubStart = Date.now();
     } else {
       overdubBtn.textContent = "Overdub";
-      // Remove empty layers
       overdubLayers = overdubLayers.filter(l => l.notes.length > 0);
     }
   }
@@ -272,14 +295,14 @@
     }
   }
 
+  // --- METRONOME IS NOW FULLY INDEPENDENT ---
   function toggleMetronome() {
     metronomeOn = document.getElementById("metronomeToggle").checked;
-    if (isLooping && metronomeOn) {
+    if (metronomeOn) {
       startMetronome();
     } else {
       if (metronomeInterval) clearInterval(metronomeInterval);
       metronomeInterval = null;
-      // Remove flash if used
       const flash = document.getElementById("metronomeFlash");
       if (flash) flash.style.background = "#34365a";
     }
@@ -287,15 +310,26 @@
 
   function startMetronome() {
     if (metronomeInterval) clearInterval(metronomeInterval);
-    clearAllTimeouts();
-    if (loopLength === 0) return;
-    const clickPath = 'sounds/191958__seidhepriest__metronome-tick-bellish.wav';
-    const beat = loopLength / quantizeDivision;
+    // If we have a loopLength (from last recording), sync metronome to that grid
+    // Otherwise, use 120bpm as default grid
+    let beatLength = 0;
+    if (loopLength && loopLength > 0) {
+      beatLength = loopLength / quantizeDivision;
+    } else {
+      // Default: 120 bpm 16th notes = 125ms per 16th
+      beatLength = 125;
+    }
     function playClick() {
-      if (!isLooping || !metronomeOn) return;
-      const audio = new Audio(clickPath);
-      audio.play();
-      // Flash on click
+      if (!metronomeOn) return;
+      const clickPath = 'sounds/191958__seidhepriest__metronome-tick-bellish.wav';
+      if (audioBuffers[clickPath]) {
+        const clickClone = audioBuffers[clickPath].cloneNode(true);
+        clickClone.play();
+      } else {
+        const audio = new Audio(clickPath);
+        audio.play();
+      }
+      // Visual flash
       const flash = document.getElementById("metronomeFlash");
       if (flash) {
         flash.style.background = "#e0e000";
@@ -303,12 +337,11 @@
       }
     }
     playClick();
-    metronomeInterval = setInterval(playClick, beat);
+    metronomeInterval = setInterval(playClick, beatLength);
   }
 
   function toggleQuantize() {
     quantizeOn = document.getElementById("quantizeToggle").checked;
   }
 </script>
-</body>
-</html>
+
