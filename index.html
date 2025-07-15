@@ -1,64 +1,55 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Drum Pad</title>
   <style>
     body {
       font-family: sans-serif;
       text-align: center;
-      padding: 2em;
       background: #111;
       color: white;
+      padding-top: 40px;
     }
     h1 {
-      margin-bottom: 1em;
+      margin-bottom: 30px;
     }
     .pad {
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      gap: 20px;
       justify-content: center;
-      gap: 10px;
     }
     button {
-      padding: 1em;
-      font-size: 1.2em;
-      background: #444;
+      padding: 20px;
+      font-size: 16px;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
+      background-color: #444;
       color: white;
-      min-width: 100px;
-      transition: background 0.2s;
+      cursor: pointer;
     }
-    button:active {
-      background: #777;
+    button:hover {
+      background-color: #666;
     }
   </style>
 </head>
 <body>
-  <h1>Drum Pad</h1>
-  <div class="pad" id="drumPad"></div>
+  <h1>🥁 Stevie's Drum Pad</h1>
+  <div class="pad">
+    <button onclick="playSound('https://cdn.pixabay.com/download/audio/2023/03/06/audio_f7b6677632.mp3?filename=kick-1-113338.mp3')">Kick</button>
+    <button onclick="playSound('https://cdn.pixabay.com/download/audio/2022/03/15/audio_befde51b6b.mp3?filename=snare-1-112206.mp3')">Snare</button>
+    <button onclick="playSound('https://cdn.pixabay.com/download/audio/2022/03/15/audio_1f25aa0d24.mp3?filename=clap-1-112208.mp3')">Clap</button>
+    <button onclick="playSound('https://cdn.pixabay.com/download/audio/2022/03/15/audio_5a95fc58a3.mp3?filename=hihat-1-112207.mp3')">HiHat</button>
+    <button onclick="playSound('https://cdn.pixabay.com/download/audio/2022/07/31/audio_6008e03d4a.mp3?filename=cowbell-114121.mp3')">Cowbell</button>
+    <button onclick="playSound('https://cdn.pixabay.com/download/audio/2023/03/02/audio_e3d7a50709.mp3?filename=bass-113221.mp3')">Bass</button>
+  </div>
 
   <script>
-    // Add your sound buttons here
-    const sounds = [
-      { label: "Kick", url: "https://cdn.pixabay.com/download/audio/2023/03/06/audio_f7b6677632.mp3?filename=kick-1-113338.mp3" },
-      { label: "Snare", url: "https://cdn.pixabay.com/download/audio/2023/03/06/audio_a3e0d64b28.mp3?filename=snare-113341.mp3" },
-      { label: "HiHat", url: "https://cdn.pixabay.com/download/audio/2023/03/06/audio_d9018821d4.mp3?filename=hihat-113342.mp3" },
-    ];
-
-    const pad = document.getElementById("drumPad");
-
-    sounds.forEach(({ label, url }) => {
-      const btn = document.createElement("button");
-      btn.textContent = label;
-      btn.onclick = () => {
-        const audio = new Audio(url);
-        audio.play().catch(err => console.error("Play error:", err));
-      };
-      pad.appendChild(btn);
-    });
+    function playSound(url) {
+      const audio = new Audio(url);
+      audio.play();
+    }
   </script>
 </body>
 </html>
