@@ -3,39 +3,106 @@
 <head>
   <meta charset="UTF-8">
   <title>Drum Pad Looper</title>
+  <!-- Orbitron Font for a modern synth look -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: sans-serif; text-align: center; background: #222; color: white; }
-    button {
-      margin: 10px;
-      padding: 15px;
-      font-size: 18px;
-      border: none;
-      border-radius: 8px;
-      background: #444;
-      color: white;
-      cursor: pointer;
-      transition: background 0.2s;
+    body { 
+      font-family: 'Orbitron', Arial, sans-serif;
+      text-align: center; 
+      background: #181924; 
+      color: #fff;
     }
-    button:hover { background: #666; }
-    .controls { margin-top: 20px; }
-    .toggles { margin: 20px 0 10px 0; }
+    h1 {
+      font-size: 3rem;
+      letter-spacing: 0.05em;
+      margin-top: 18px;
+      margin-bottom: 12px;
+      text-shadow: 0 3px 10px #222;
+    }
+    .drum-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 18px;
+      margin-bottom: 20px;
+    }
+    button {
+      margin: 8px;
+      padding: 32px 34px;
+      font-size: 2.1rem;
+      font-family: 'Orbitron', Arial, sans-serif;
+      font-weight: 700;
+      border: none;
+      border-radius: 22px;
+      background: linear-gradient(145deg,#23244a 60%,#2731a2 100%);
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.13s, box-shadow 0.2s, transform 0.07s;
+      box-shadow: 0 5px 24px #10102a88;
+      outline: none;
+      min-width: 140px;
+      min-height: 78px;
+    }
+    button:active {
+      background: linear-gradient(145deg,#11132d 80%,#1b2266 100%);
+      transform: scale(0.97);
+      box-shadow: 0 2px 10px #07081a99;
+    }
+    button:disabled {
+      background: #55556a;
+      color: #aaa;
+      cursor: not-allowed;
+    }
+    .controls {
+      margin-top: 10px; 
+      margin-bottom: 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      justify-content: center;
+    }
+    .toggles {
+      margin: 26px 0 10px 0;
+      font-size: 1.3rem;
+      letter-spacing: 0.01em;
+    }
+    label {
+      margin: 0 22px;
+      cursor: pointer;
+    }
+    #metronomeFlash {
+      margin: 20px auto 16px auto; 
+      width: 55px; height: 55px; 
+      border-radius: 50%; 
+      background: #34365a; 
+      box-shadow: 0 0 22px #35348e66;
+      transition: background 0.07s;
+    }
+    .info {
+      margin-top:18px;
+      color:#94a4c7;
+      font-size:16px;
+      letter-spacing: 0.02em;
+    }
   </style>
 </head>
 <body>
   <h1>Drum Pad Looper</h1>
-  <button onclick="playPad('sounds/kick1.mp3')">Kick 1</button>
-  <button onclick="playPad('sounds/kick2.mp3')">Kick 2</button>
-  <button onclick="playPad('sounds/snare1.mp3')">Snare 1</button>
-  <button onclick="playPad('sounds/snare2.mp3')">Snare 2</button>
-  <button onclick="playPad('sounds/hihat1.mp3')">HiHat 1</button>
-  <button onclick="playPad('sounds/hihat2.mp3')">HiHat 2</button>
-  <button onclick="playPad('sounds/kick3.mp3')">Kick 3</button>
-  <button onclick="playPad('sounds/kick4.mp3')">Kick 4</button>
-  <button onclick="playPad('sounds/snare3.mp3')">Snare 3</button>
-  <button onclick="playPad('sounds/705473__samanthamayirwin_music__e-minor-chord-piano2.mp3')">e minor</button>
-  <button onclick="playPad('sounds/705472__samanthamayirwin_music__d-major-chord-piano2.mp3')">D major</button>
-  <button onclick="playPad('sounds/705474__samanthamayirwin_music__g-major-chord-piano2.mp3')">g major</button>
-  
+  <div id="metronomeFlash"></div>
+  <div class="drum-row">
+    <button onclick="playPad('sounds/kick1.mp3')">Kick 1</button>
+    <button onclick="playPad('sounds/kick2.mp3')">Kick 2</button>
+    <button onclick="playPad('sounds/snare1.mp3')">Snare 1</button>
+    <button onclick="playPad('sounds/snare2.mp3')">Snare 2</button>
+    <button onclick="playPad('sounds/hihat1.mp3')">HiHat 1</button>
+    <button onclick="playPad('sounds/hihat2.mp3')">HiHat 2</button>
+    <button onclick="playPad('sounds/kick3.mp3')">Kick 3</button>
+    <button onclick="playPad('sounds/kick4.mp3')">Kick 4</button>
+    <button onclick="playPad('sounds/snare3.mp3')">Snare 3</button>
+    <button onclick="playPad('sounds/705473__samanthamayirwin_music__e-minor-chord-piano2.mp3')">e minor</button>
+    <button onclick="playPad('sounds/705472__samanthamayirwin_music__d-major-chord-piano2.mp3')">D major</button>
+    <button onclick="playPad('sounds/705474__samanthamayirwin_music__g-major-chord-piano2.mp3')">g major</button>
+  </div>
   <div class="controls">
     <button id="recordBtn" onclick="toggleRecording()">Record</button>
     <button onclick="playLoop()">Play Loop</button>
@@ -43,17 +110,14 @@
     <button id="overdubBtn" onclick="toggleOverdub()" disabled>Overdub</button>
     <button id="clearOverdubBtn" onclick="clearLastOverdub()" disabled>Clear Last Overdub</button>
   </div>
-
   <div class="toggles">
     <label><input type="checkbox" id="metronomeToggle" onchange="toggleMetronome()"> Metronome</label>
     <label><input type="checkbox" id="quantizeToggle" onchange="toggleQuantize()"> Quantize</label>
   </div>
-  
-  <div style="margin-top:20px;color:#888;font-size:14px;">
+  <div class="info">
     Metronome sound: <b>sounds/191958__seidhepriest__metronome-tick-bellish.wav</b><br>
     Quantize grid: <b>16th notes</b> (change <code>quantizeDivision</code> in code if you want another grid)
   </div>
-
 <script>
   // --- SETTINGS ---
   let quantizeDivision = 16; // quantize grid: 8 for eighths, 16 for sixteenths
@@ -74,6 +138,9 @@
   // For undo: overdubs stored as layers
   let overdubLayers = []; // array of {notes: [...]}
   let baseNotes = [];     // original sequence
+
+  // Keep track of ALL timeouts (drum & metronome) for immediate clearing
+  let activeTimeouts = [];
 
   function playPad(path) {
     const audio = new Audio(path);
@@ -107,6 +174,11 @@
     if (length === 0) return ms;
     const beat = length / quantizeDivision;
     return Math.round(ms / beat) * beat;
+  }
+
+  function clearAllTimeouts() {
+    for (const t of activeTimeouts) clearTimeout(t);
+    activeTimeouts = [];
   }
 
   function toggleRecording() {
@@ -153,6 +225,7 @@
   }
 
   function stopLoop() {
+    // Immediate stop: kill intervals & scheduled hits/clicks
     if (loopInterval) clearInterval(loopInterval);
     if (metronomeInterval) clearInterval(metronomeInterval);
     loopInterval = null;
@@ -160,13 +233,17 @@
     isLooping = false;
     isOverdubbing = false;
     document.getElementById("overdubBtn").textContent = "Overdub";
+    clearAllTimeouts();
+    const flash = document.getElementById("metronomeFlash");
+    if (flash) flash.style.background = "#34365a";
   }
 
   function playFullNotes() {
     // Play base + all overdub layers
     const allNotes = baseNotes.concat(...overdubLayers.map(l => l.notes));
     for (let note of allNotes) {
-      setTimeout(() => { playPad(note.path); }, note.time);
+      const t = setTimeout(() => { playPad(note.path); }, note.time);
+      activeTimeouts.push(t);
     }
   }
 
@@ -188,6 +265,10 @@
   function clearLastOverdub() {
     if (overdubLayers.length > 0) {
       overdubLayers.pop();
+      if (isLooping) {
+        stopLoop();
+        playLoop();
+      }
     }
   }
 
@@ -198,21 +279,30 @@
     } else {
       if (metronomeInterval) clearInterval(metronomeInterval);
       metronomeInterval = null;
+      // Remove flash if used
+      const flash = document.getElementById("metronomeFlash");
+      if (flash) flash.style.background = "#34365a";
     }
   }
 
   function startMetronome() {
     if (metronomeInterval) clearInterval(metronomeInterval);
+    clearAllTimeouts();
     if (loopLength === 0) return;
-    const clickPath = 'sounds/metronome.mp3';
+    const clickPath = 'sounds/191958__seidhepriest__metronome-tick-bellish.wav';
     const beat = loopLength / quantizeDivision;
     function playClick() {
+      if (!isLooping || !metronomeOn) return;
       const audio = new Audio(clickPath);
       audio.play();
+      // Flash on click
+      const flash = document.getElementById("metronomeFlash");
+      if (flash) {
+        flash.style.background = "#e0e000";
+        setTimeout(() => { flash.style.background = "#34365a"; }, 90);
+      }
     }
-    // Play one click immediately
     playClick();
-    // Schedule clicks for each beat
     metronomeInterval = setInterval(playClick, beat);
   }
 
