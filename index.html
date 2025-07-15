@@ -311,12 +311,12 @@
   function startMetronome() {
     if (metronomeInterval) clearInterval(metronomeInterval);
     // If we have a loopLength (from last recording), sync metronome to that grid
-    // Otherwise, use 120bpm as default grid
+    // Otherwise, use 85bpm as default grid
     let beatLength = 0;
     if (loopLength && loopLength > 0) {
       beatLength = loopLength / quantizeDivision;
     } else {
-      // Default: 120 bpm 16th notes = 125ms per 16th
+      // Default: 85 bpm 16th notes = 125ms per 16th
       beatLength = 125;
     }
     function playClick() {
@@ -344,4 +344,14 @@
     quantizeOn = document.getElementById("quantizeToggle").checked;
   }
 </script>
+
+<hr>
+<form action="mailto:stephenwyrzykowski@gmail.com" method="POST" enctype="text/plain" style="margin:40px auto 20px auto; max-width:460px; background:#23244a; padding:32px 28px; border-radius:18px; color:#fff; box-shadow:0 2px 16px #23244a88; font-size:1.12rem;">
+  <h2 style="font-family:Orbitron,Arial,sans-serif;margin-bottom:8px;">Suggest Drum Sounds</h2>
+  <label for="remove" style="display:block;margin:8px 0 2px;">What sound should I <b>remove</b>?</label>
+  <input type="text" id="remove" name="Remove" style="width:100%;padding:9px;border-radius:7px;border:1px solid #3c3d70;margin-bottom:15px;">
+  <label for="add" style="display:block;margin:8px 0 2px;">What sound should I <b>add</b>?</label>
+  <input type="text" id="add" name="Add" style="width:100%;padding:9px;border-radius:7px;border:1px solid #3c3d70;margin-bottom:20px;">
+  <button type="submit" style="font-size:1.15rem;padding:11px 24px;border-radius:8px;background:#3a53d1;color:#fff;border:none;font-family:Orbitron,Arial,sans-serif;cursor:pointer;">Send Suggestion</button>
+</form>
 
