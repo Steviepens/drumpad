@@ -2,84 +2,72 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Looping Drum Pad</title>
+  <title>Drum Pad</title>
   <style>
-    body { font-family: sans-serif; background: #111; color: white; text-align: center; padding: 20px; }
+    body { font-family: sans-serif; text-align: center; background: #222; color: white; }
     button {
-      margin: 8px; padding: 15px 30px; font-size: 18px;
-      background: #444; color: white; border: none; border-radius: 8px; cursor: pointer;
+      margin: 10px;
+      padding: 20px;
+      font-size: 20px;
+      border: none;
+      border-radius: 10px;
+      background: #444;
+      color: white;
+      cursor: pointer;
     }
     button:hover { background: #666; }
-    #controls { margin-top: 30px; }
   </style>
 </head>
 <body>
-  <h1>🔁 Looping Drum Pad</h1>
-
-  <div>
-  <button qonclick="playSound('sounds/kick1.mp3')">Kick 1</button>
-  <button onclick="playSound('sounds/kick2.mp3')">Kick 2</button>
-  <button onclick="playSound('sounds/snare1.mp3')">Snare 1</button>
-  <button onclick="playSound('sounds/snare2.mp3')">Snare 2</button>
-  <button onclick="playSound('sounds/hihat1.mp3')">HiHat 1</button>
-  <button onclick="playSound('sounds/hihat2.mp3')">HiHat 2</button>
-  </div>
-
-  <div id="controls">
-    <button onclick="startRecording()">🎙️ Start Recording</button>
-    <button onclick="stopRecording()">🛑 Stop Recording</button>
-    <button onclick="startLoop()">▶️ Play Loop</button>
-    <button onclick="stopLoop()">⏹ Stop Loop</button>
-  </div>
-
+  <h1>Drum Pad</h1>
+  <button onclick="playPad('sounds/kick1.mp3')">Kick 1</button>
+  <button onclick="playPad('sounds/kick2.mp3')">Kick 2</button>
+  <button onclick="playPad('sounds/snare1.mp3')">Snare 1</button>
+  <button onclick="playPad('sounds/snare2.mp3')">Snare 2</button>
+  <button onclick="playPad('sounds/hihat1.mp3')">HiHat 1</button>
+  <button onclick="playPad('sounds/hihat2.mp3')">HiHat 2</button>
+  <br><br>
+  <button id="recordBtn" onclick="toggleRecording()">Record</button>
+  <button onclick="playLoop()">Play Loop</button>
+  
   <script>
-    const BPM = 120;
-    const beatsPerLoop = 16;
-    const interval = (60 / BPM) * 1000;
-    let loopData = Array.from({ length: beatsPerLoop }, () => []);
-    let currentBeat = 0;
     let isRecording = false;
-    let loopInterval = null;
+    let recordedNotes = [];
+    let recordStart = 0;
 
-    function playSound(path) {
+    function playPad(path) {
+      // Play the sound
       const audio = new Audio(path);
       audio.play();
-    }
-
-    function onPadClick(soundPath) {
-      playSound(soundPath);
+      // If recording, save the sound and time
       if (isRecording) {
-        loopData[currentBeat].push(soundPath);
+        const now = Date.now();
+        recordedNotes.push({
+          path: path,
+          time: now - recordStart
+        });
       }
     }
 
-    function startRecording() {
-      isRecording = true;
-      currentBeat = 0;
-      loopData = Array.from({ length: beatsPerLoop }, () => []);
-      alert('Recording started');
+    function toggleRecording() {
+      isRecording = !isRecording;
+      const btn = document.getElementById("recordBtn");
+      if (isRecording) {
+        recordedNotes = [];
+        recordStart = Date.now();
+        btn.textContent = "Stop Recording";
+      } else {
+        btn.textContent = "Record";
+      }
     }
 
-    function stopRecording() {
-      isRecording = false;
-      alert('Recording stopped');
-    }
-
-    function startLoop() {
-      stopLoop(); // reset if running
-      loopInterval = setInterval(() => {
-        playBeat(currentBeat);
-        currentBeat = (currentBeat + 1) % beatsPerLoop;
-      }, interval);
-    }
-
-    function stopLoop() {
-      clearInterval(loopInterval);
-      currentBeat = 0;
-    }
-
-    function playBeat(index) {
-      loopData[index].forEach(soundPath => playSound(soundPath));
+    function playLoop() {
+      if (recordedNotes.length === 0) return;
+      for (let note of recordedNotes) {
+        setTimeout(() => {
+          playPad(note.path);
+        }, note.time);
+      }
     }
   </script>
 </body>
