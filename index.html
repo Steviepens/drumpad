@@ -1,201 +1,218 @@
-<!DOCTYPE<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Drum Pad</title>
+  <title>Drum Pad Looper</title>
   <style>
     body { font-family: sans-serif; text-align: center; background: #222; color: white; }
     button {
       margin: 10px;
-      padding: 20px;
-      font-size: 20px;
+      padding: 15px;
+      font-size: 18px;
       border: none;
-      border-radius: 10px;
+      border-radius: 8px;
       background: #444;
       color: white;
       cursor: pointer;
+      transition: background 0.2s;
     }
     button:hover { background: #666; }
+    .controls { margin-top: 20px; }
+    .toggles { margin: 20px 0 10px 0; }
   </style>
 </head>
 <body>
-  <h1>Drum Pad</h1>
+  <h1>Drum Pad Looper</h1>
   <button onclick="playPad('sounds/kick1.mp3')">Kick 1</button>
   <button onclick="playPad('sounds/kick2.mp3')">Kick 2</button>
   <button onclick="playPad('sounds/snare1.mp3')">Snare 1</button>
   <button onclick="playPad('sounds/snare2.mp3')">Snare 2</button>
   <button onclick="playPad('sounds/hihat1.mp3')">HiHat 1</button>
   <button onclick="playPad('sounds/hihat2.mp3')">HiHat 2</button>
-  <br><br>
-  <button id="recordBtn" onclick="toggleRecording()">Record</button>
-  <button onclick="playLoop()">Play Loop</button>
-  <button onclick="stopLoop()">Stop Loop</button>
-  <button id="overdubBtn" onclick="toggleOverdub()" disabled>Overdub</button>
+
+  <div class="controls">
+    <button id="recordBtn" onclick="toggleRecording()">Record</button>
+    <button onclick="playLoop()">Play Loop</button>
+    <button onclick="stopLoop()">Stop Loop</button>
+    <button id="overdubBtn" onclick="toggleOverdub()" disabled>Overdub</button>
+    <button id="clearOverdubBtn" onclick="clearLastOverdub()" disabled>Clear Last Overdub</button>
+  </div>
+
+  <div class="toggles">
+    <label><input type="checkbox" id="metronomeToggle" onchange="toggleMetronome()"> Metronome</label>
+    <label><input type="checkbox" id="quantizeToggle" onchange="toggleQuantize()"> Quantize</label>
+  </div>
   
-  <script>
-    let isRecording = false;
-    let recordedNotes = [];
-    let recordStart = 0;
-    let loopInterval = null;
-    let loopLength = 0;
-    let isLooping = false;
-    let isOverdubbing = false;
-    let overdubStart = 0;
+  <div style="margin-top:20px;color:#888;font-size:14px;">
+    Metronome sound: <b>sounds/metronome.mp3</b><br>
+    Quantize grid: <b>16th notes</b> (change <code>quantizeDivision</code> in code if you want another grid)
+  </div>
 
-    function playPad(path) {
-      const audio = new Audio(path);
-      audio.play();
-      // If recording, save the hit
-      if (isRecording) {
-        const now = Date.now();
-        recordedNotes.push({
-          path: path,
-          time: now - recordStart
-        });
+<script>
+  // --- SETTINGS ---
+  let quantizeDivision = 16; // quantize grid: 8 for eighths, 16 for sixteenths
+
+  // --- State ---
+  let isRecording = false;
+  let recordedNotes = [];
+  let recordStart = 0;
+  let loopInterval = null;
+  let loopLength = 0;
+  let isLooping = false;
+  let isOverdubbing = false;
+  let overdubStart = 0;
+  let metronomeOn = false;
+  let quantizeOn = false;
+  let metronomeInterval = null;
+
+  // For undo: overdubs stored as layers
+  let overdubLayers = []; // array of {notes: [...]}
+  let baseNotes = [];     // original sequence
+
+  function playPad(path) {
+    const audio = new Audio(path);
+    audio.play();
+
+    // RECORD mode (initial take)
+    if (isRecording) {
+      const now = Date.now();
+      let noteTime = now - recordStart;
+      if (quantizeOn) {
+        noteTime = quantizeTime(noteTime, loopLength);
       }
-      // If overdubbing, save new hit relative to loop
-      if (isOverdubbing && isLooping) {
-        const now = Date.now();
-        let posInLoop = (now - overdubStart) % loopLength;
-        recordedNotes.push({
-          path: path,
-          time: posInLoop
-        });
-      }
+      recordedNotes.push({ path: path, time: noteTime });
     }
 
-    function toggleRecording() {
-      isRecording = !isRecording;
-      const btn = document.getElementById("recordBtn");
-      const overdubBtn = document.getElementById("overdubBtn");
-      if (isRecording) {
-        recordedNotes = [];
-        recordStart = Date.now();
-        btn.textContent = "Stop Recording";
-        overdubBtn.disabled = true;
-        stopLoop();
-      } else {
-        btn.textContent = "Record";
-        if (recordedNotes.length) {
-          // Calculate total loop length
-          loopLength = recordedNotes[recordedNotes.length - 1].time + 500; // Add a small buffer
-          overdubBtn.disabled = false;
-        }
+    // OVERDUB mode
+    if (isOverdubbing && isLooping) {
+      const now = Date.now();
+      let posInLoop = (now - overdubStart) % loopLength;
+      if (quantizeOn) {
+        posInLoop = quantizeTime(posInLoop, loopLength);
+      }
+      // Store this hit in the current overdub layer
+      if (overdubLayers.length === 0) overdubLayers.push({notes:[]});
+      overdubLayers[overdubLayers.length-1].notes.push({ path: path, time: posInLoop });
+    }
+  }
+
+  function quantizeTime(ms, length) {
+    // Quantize ms to the nearest division (e.g., 16th note)
+    if (length === 0) return ms;
+    const beat = length / quantizeDivision;
+    return Math.round(ms / beat) * beat;
+  }
+
+  function toggleRecording() {
+    isRecording = !isRecording;
+    const btn = document.getElementById("recordBtn");
+    const overdubBtn = document.getElementById("overdubBtn");
+    const clearOverdubBtn = document.getElementById("clearOverdubBtn");
+    if (isRecording) {
+      recordedNotes = [];
+      baseNotes = [];
+      overdubLayers = [];
+      recordStart = Date.now();
+      btn.textContent = "Stop Recording";
+      overdubBtn.disabled = true;
+      clearOverdubBtn.disabled = true;
+      stopLoop();
+    } else {
+      btn.textContent = "Record";
+      if (recordedNotes.length) {
+        // Calculate loop length
+        loopLength = recordedNotes[recordedNotes.length - 1].time + 500;
+        baseNotes = recordedNotes.slice();
+        overdubLayers = [];
+        overdubBtn.disabled = false;
+        clearOverdubBtn.disabled = false;
       }
     }
+  }
 
-    function playLoop() {
-      if (recordedNotes.length === 0) return;
-      stopLoop(); // Make sure we don't double up loops
-      isLooping = true;
+  function playLoop() {
+    if (baseNotes.length === 0) return;
+    stopLoop(); // Stop previous loops/metronomes
+    isLooping = true;
+    overdubStart = Date.now();
+    playFullNotes();
+    loopInterval = setInterval(() => {
       overdubStart = Date.now();
-      function playNotes() {
-        for (let note of recordedNotes) {
-          setTimeout(() => {
-            playPad(note.path);
-          }, note.time);
-        }
-      }
-      playNotes();
-      loopInterval = setInterval(() => {
-        overdubStart = Date.now();
-        playNotes();
-      }, loopLength);
-    }
+      playFullNotes();
+    }, loopLength);
 
-    function stopLoop() {
-      if (loopInterval) {
-        clearInterval(loopInterval);
-        loopInterval = null;
-      }
-      isLooping = false;
-      isOverdubbing = false;
-      document.getElementById("overdubBtn").textContent = "Overdub";
+    if (metronomeOn) {
+      startMetronome();
     }
+  }
 
-    function toggleOverdub() {
-      if (!isLooping) return;
-      isOverdubbing = !isOverdubbing;
-      const overdubBtn = document.getElementById("overdubBtn");
-      overdubBtn.textContent = isOverdubbing ? "Stop Overdub" : "Overdub";
-      if (isOverdubbing) {
-        overdubStart = Date.now();
-      }
-    }
-  </script>
-</body>
-</html>
- html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Drum Pad</title>
-  <style>
-    body { font-family: sans-serif; text-align: center; background: #222; color: white; }
-    button {
-      margin: 10px;
-      padding: 20px;
-      font-size: 20px;
-      border: none;
-      border-radius: 10px;
-      background: #444;
-      color: white;
-      cursor: pointer;
-    }
-    button:hover { background: #666; }
-  </style>
-</head>
-<body>
-  <h1>Drum Pad</h1>
-  <button onclick="playPad('sounds/kick1.mp3')">Kick 1</button>
-  <button onclick="playPad('sounds/kick2.mp3')">Kick 2</button>
-  <button onclick="playPad('sounds/snare1.mp3')">Snare 1</button>
-  <button onclick="playPad('sounds/snare2.mp3')">Snare 2</button>
-  <button onclick="playPad('sounds/hihat1.mp3')">HiHat 1</button>
-  <button onclick="playPad('sounds/hihat2.mp3')">HiHat 2</button>
-  <br><br>
-  <button id="recordBtn" onclick="toggleRecording()">Record</button>
-  <button onclick="playLoop()">Play Loop</button>
-  
-  <script>
-    let isRecording = false;
-    let recordedNotes = [];
-    let recordStart = 0;
+  function stopLoop() {
+    if (loopInterval) clearInterval(loopInterval);
+    if (metronomeInterval) clearInterval(metronomeInterval);
+    loopInterval = null;
+    metronomeInterval = null;
+    isLooping = false;
+    isOverdubbing = false;
+    document.getElementById("overdubBtn").textContent = "Overdub";
+  }
 
-    function playPad(path) {
-      // Play the sound
-      const audio = new Audio(path);
+  function playFullNotes() {
+    // Play base + all overdub layers
+    const allNotes = baseNotes.concat(...overdubLayers.map(l => l.notes));
+    for (let note of allNotes) {
+      setTimeout(() => { playPad(note.path); }, note.time);
+    }
+  }
+
+  function toggleOverdub() {
+    if (!isLooping) return;
+    isOverdubbing = !isOverdubbing;
+    const overdubBtn = document.getElementById("overdubBtn");
+    if (isOverdubbing) {
+      overdubBtn.textContent = "Stop Overdub";
+      overdubLayers.push({notes:[]}); // Start a new layer
+      overdubStart = Date.now();
+    } else {
+      overdubBtn.textContent = "Overdub";
+      // Remove empty layers
+      overdubLayers = overdubLayers.filter(l => l.notes.length > 0);
+    }
+  }
+
+  function clearLastOverdub() {
+    if (overdubLayers.length > 0) {
+      overdubLayers.pop();
+    }
+  }
+
+  function toggleMetronome() {
+    metronomeOn = document.getElementById("metronomeToggle").checked;
+    if (isLooping && metronomeOn) {
+      startMetronome();
+    } else {
+      if (metronomeInterval) clearInterval(metronomeInterval);
+      metronomeInterval = null;
+    }
+  }
+
+  function startMetronome() {
+    if (metronomeInterval) clearInterval(metronomeInterval);
+    if (loopLength === 0) return;
+    const clickPath = 'sounds/metronome.mp3';
+    const beat = loopLength / quantizeDivision;
+    function playClick() {
+      const audio = new Audio(clickPath);
       audio.play();
-      // If recording, save the sound and time
-      if (isRecording) {
-        const now = Date.now();
-        recordedNotes.push({
-          path: path,
-          time: now - recordStart
-        });
-      }
     }
+    // Play one click immediately
+    playClick();
+    // Schedule clicks for each beat
+    metronomeInterval = setInterval(playClick, beat);
+  }
 
-    function toggleRecording() {
-      isRecording = !isRecording;
-      const btn = document.getElementById("recordBtn");
-      if (isRecording) {
-        recordedNotes = [];
-        recordStart = Date.now();
-        btn.textContent = "Stop Recording";
-      } else {
-        btn.textContent = "Record";
-      }
-    }
-
-    function playLoop() {
-      if (recordedNotes.length === 0) return;
-      for (let note of recordedNotes) {
-        setTimeout(() => {
-          playPad(note.path);
-        }, note.time);
-      }
-    }
-  </script>
+  function toggleQuantize() {
+    quantizeOn = document.getElementById("quantizeToggle").checked;
+  }
+</script>
 </body>
 </html>
