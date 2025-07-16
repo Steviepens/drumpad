@@ -2,105 +2,315 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Looping Drum Pad with Save</title>
+  <title>Drum Machine Looper</title>
   <style>
-    body { font-family: sans-serif; background: #111; color: white; text-align: center; padding: 20px; }
-    button {
-      margin: 8px; padding: 15px 30px; font-size: 18px;
-      background: #444; color: white; border: none; border-radius: 8px; cursor: pointer;
-    }
-    button:hover { background: #666; }
-    #controls { margin-top: 30px; }
+    body { background: #222; color: #eee; font-family: sans-serif; text-align: center; }
+    #padGrid { display: grid; grid-template-columns: repeat(4, 70px); gap: 15px; justify-content: center; margin: 30px auto 10px; }
+    .pad { background: #444; border: none; border-radius: 10px; width: 70px; height: 70px; font-size: 15px; color: #eee; transition: 0.07s; }
+    .pad.active { background: #e0e000; color: #222; }
+    button, input[type="checkbox"] { margin: 6px 5px; }
+    #metronomeFlash { display: inline-block; width: 30px; height: 30px; background: #34365a; border-radius: 50%; vertical-align: middle; margin-left: 8px; }
+    .controls { margin-bottom: 18px; }
   </style>
 </head>
 <body>
-  <h1>🔁 Drum Pad with Loop Save</h1>
-
-  <div>
-    <button onclick="onPadClick('sounds/kick1.mp3')">Kick</button>
-    <button onclick="onPadClick('sounds/snare1.mp3')">Snare</button>
-    <button onclick="onPadClick('sounds/hihat1.mp3')">HiHat</button>
+  <h2>Drum Machine Looper</h2>
+  <div class="controls">
+    <button id="recordBtn">Record</button>
+    <button id="playBtn">Play</button>
+    <button id="stopBtn">Stop</button>
+    <button id="overdubBtn" disabled>Overdub</button>
+    <button id="clearOverdubBtn" disabled>Undo Overdub</button>
+    <button id="saveBtn">Save as WAV</button>
+    <br>
+    <label><input type="checkbox" id="quantizeToggle"> Quantize</label>
+    <label><input type="checkbox" id="metronomeToggle"> Metronome</label>
+    <span id="metronomeFlash"></span>
   </div>
-
-  <div id="controls">
-    <button onclick="startRecording()">🎙️ Start Recording</button>
-    <button onclick="stopRecording()">🛑 Stop Recording</button>
-    <button onclick="startLoop()">▶️ Play Loop</button>
-    <button onclick="stopLoop()">⏹ Stop Loop</button>
-    <button onclick="saveLoop()">💾 Save Loop</button>
-    <button onclick="loadLoop()">📂 Load Loop</button>
-    <button onclick="clearSavedLoop()">❌ Clear Saved Loop</button>
-  </div>
-
+  <div id="padGrid"></div>
   <script>
-    const BPM = 120;
-    const beatsPerLoop = 16;
-    const interval = (60 / BPM) * 1000;
-    let loopData = Array.from({ length: beatsPerLoop }, () => []);
-    let currentBeat = 0;
-    let isRecording = false;
-    let loopInterval = null;
+    // --- SETTINGS ---
+    const quantizeDivision = 16; // 16 for 16th notes
+    // Set up your sounds here (path, label)
+    const padPaths = [
+      ['sounds/kick1.mp3', 'Kick 1'],
+      ['sounds/kick2.mp3', 'Kick 2'],
+      ['sounds/snare1.mp3', 'Snare 1'],
+      ['sounds/snare2.mp3', 'Snare 2'],
+      ['sounds/hihat1.mp3', 'HiHat 1'],
+      ['sounds/hihat2.mp3', 'HiHat 2'],
+      ['sounds/kick3.mp3', 'Kick 3'],
+      ['sounds/kick4.mp3', 'Kick 4'],
+      ['sounds/snare3.mp3', 'Snare 3'],
+      ['sounds/705473__samanthamayirwin_music__e-minor-chord-piano2.mp3', 'Emin'],
+      ['sounds/705472__samanthamayirwin_music__d-major-chord-piano2.mp3', 'Dmaj'],
+      ['sounds/705474__samanthamayirwin_music__g-major-chord-piano2.mp3', 'Gmaj'],
+    ];
+    const metronomePath = 'sounds/191958__seidhepriest__metronome-tick-bellish.wav';
 
-    function playSound(path) {
-      const audio = new Audio(path);
-      audio.play();
+    // --- State ---
+    let isRecording = false, recordedNotes = [], recordStart = 0, loopInterval = null, loopLength = 0,
+        isLooping = false, isOverdubbing = false, overdubStart = 0, metronomeOn = false, quantizeOn = false,
+        metronomeInterval = null, overdubLayers = [], baseNotes = [], activeTimeouts = [], contextStarted = false;
+
+    // --- AUDIOBUFFER LOADING ---
+    let audioContext = null;
+    const audioBuffers = {}; // path: AudioBuffer
+
+    async function loadSample(path) {
+      if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const response = await fetch(path);
+      const arrayBuffer = await response.arrayBuffer();
+      return await audioContext.decodeAudioData(arrayBuffer);
+    }
+    async function loadAllBuffers() {
+      // pads
+      for (const [path] of padPaths) {
+        audioBuffers[path] = await loadSample(path);
+      }
+      // metronome
+      audioBuffers[metronomePath] = await loadSample(metronomePath);
     }
 
-    function onPadClick(soundPath) {
-      playSound(soundPath);
-      if (isRecording) {
-        loopData[currentBeat].push(soundPath);
+    // --- UI INIT ---
+    function createPadGrid() {
+      const grid = document.getElementById('padGrid');
+      padPaths.forEach(([path, label], i) => {
+        const btn = document.createElement('button');
+        btn.className = 'pad';
+        btn.textContent = label;
+        btn.onclick = () => playPad(path, btn);
+        grid.appendChild(btn);
+      });
+    }
+
+    function playPad(path, btn = null) {
+      if (!audioContext) return;
+      const src = audioContext.createBufferSource();
+      src.buffer = audioBuffers[path];
+      src.connect(audioContext.destination);
+      src.start();
+
+      // visual feedback
+      if (btn) {
+        btn.classList.add('active');
+        setTimeout(() => btn.classList.remove('active'), 120);
+      }
+
+      // Record (not metronome)
+      if (isRecording && path !== metronomePath) {
+        let noteTime = Date.now() - recordStart;
+        if (quantizeOn) noteTime = quantizeTime(noteTime, loopLength);
+        recordedNotes.push({ path, time: noteTime });
+      }
+      // Overdub
+      if (isOverdubbing && isLooping && path !== metronomePath) {
+        let posInLoop = (Date.now() - overdubStart) % loopLength;
+        if (quantizeOn) posInLoop = quantizeTime(posInLoop, loopLength);
+        if (overdubLayers.length === 0) overdubLayers.push({notes:[]});
+        overdubLayers[overdubLayers.length-1].notes.push({ path, time: posInLoop });
       }
     }
 
-    function startRecording() {
-      isRecording = true;
-      currentBeat = 0;
-      loopData = Array.from({ length: beatsPerLoop }, () => []);
-      alert('Recording started');
+    function quantizeTime(ms, length) {
+      if (length === 0) return ms;
+      const beat = length / quantizeDivision;
+      return Math.round(ms / beat) * beat;
     }
 
-    function stopRecording() {
-      isRecording = false;
-      alert('Recording stopped');
+    function clearAllTimeouts() { activeTimeouts.forEach(clearTimeout); activeTimeouts = []; }
+
+    // --- RECORD, PLAY, OVERDUB, STOP ---
+    function toggleRecording() {
+      isRecording = !isRecording;
+      const btn = document.getElementById("recordBtn");
+      const overdubBtn = document.getElementById("overdubBtn");
+      const clearOverdubBtn = document.getElementById("clearOverdubBtn");
+      if (isRecording) {
+        recordedNotes = [];
+        baseNotes = [];
+        overdubLayers = [];
+        recordStart = Date.now();
+        btn.textContent = "Stop Recording";
+        overdubBtn.disabled = true;
+        clearOverdubBtn.disabled = true;
+        stopLoop();
+      } else {
+        btn.textContent = "Record";
+        if (recordedNotes.length) {
+          loopLength = recordedNotes[recordedNotes.length - 1].time + 500;
+          baseNotes = recordedNotes.slice();
+          overdubLayers = [];
+          overdubBtn.disabled = false;
+          clearOverdubBtn.disabled = false;
+        }
+      }
     }
 
-    function startLoop() {
-      stopLoop(); // reset if running
+    function playLoop() {
+      if (baseNotes.length === 0) return;
+      stopLoop();
+      isLooping = true;
+      overdubStart = Date.now();
+      playFullNotes();
       loopInterval = setInterval(() => {
-        playBeat(currentBeat);
-        currentBeat = (currentBeat + 1) % beatsPerLoop;
-      }, interval);
+        overdubStart = Date.now();
+        playFullNotes();
+      }, loopLength);
     }
 
     function stopLoop() {
-      clearInterval(loopInterval);
-      currentBeat = 0;
+      if (loopInterval) clearInterval(loopInterval);
+      loopInterval = null;
+      isLooping = false;
+      isOverdubbing = false;
+      document.getElementById("overdubBtn").textContent = "Overdub";
+      clearAllTimeouts();
+      // Don't stop the metronome here!
+      document.getElementById("metronomeFlash").style.background = "#34365a";
     }
 
-    function playBeat(index) {
-      loopData[index].forEach(soundPath => playSound(soundPath));
-    }
-
-    function saveLoop() {
-      localStorage.setItem("savedLoop", JSON.stringify(loopData));
-      alert("Loop saved!");
-    }
-
-    function loadLoop() {
-      const saved = localStorage.getItem("savedLoop");
-      if (saved) {
-        loopData = JSON.parse(saved);
-        alert("Loop loaded!");
-      } else {
-        alert("No saved loop found.");
+    function playFullNotes() {
+      const allNotes = baseNotes.concat(...overdubLayers.map(l => l.notes));
+      for (let note of allNotes) {
+        const t = setTimeout(() => { playPad(note.path); }, note.time);
+        activeTimeouts.push(t);
       }
     }
 
-    function clearSavedLoop() {
-      localStorage.removeItem("savedLoop");
-      alert("Saved loop cleared.");
+    function toggleOverdub() {
+      if (!isLooping) return;
+      isOverdubbing = !isOverdubbing;
+      const overdubBtn = document.getElementById("overdubBtn");
+      if (isOverdubbing) {
+        overdubBtn.textContent = "Stop Overdub";
+        overdubLayers.push({notes:[]});
+        overdubStart = Date.now();
+      } else {
+        overdubBtn.textContent = "Overdub";
+        overdubLayers = overdubLayers.filter(l => l.notes.length > 0);
+      }
     }
+
+    function clearLastOverdub() {
+      if (overdubLayers.length > 0) {
+        overdubLayers.pop();
+        if (isLooping) { stopLoop(); playLoop(); }
+      }
+    }
+
+    // --- METRONOME ---
+    function toggleMetronome() {
+      metronomeOn = document.getElementById("metronomeToggle").checked;
+      if (metronomeOn) {
+        startMetronome();
+      } else {
+        if (metronomeInterval) clearInterval(metronomeInterval);
+        metronomeInterval = null;
+        document.getElementById("metronomeFlash").style.background = "#34365a";
+      }
+    }
+
+    function startMetronome() {
+      if (metronomeInterval) clearInterval(metronomeInterval);
+      let beatLength = (loopLength && loopLength > 0) ? loopLength / quantizeDivision : 125;
+      function playClick() {
+        if (!metronomeOn) return;
+        playPad(metronomePath);
+        // Visual flash
+        const flash = document.getElementById("metronomeFlash");
+        flash.style.background = "#e0e000";
+        setTimeout(() => { flash.style.background = "#34365a"; }, 90);
+      }
+      playClick();
+      metronomeInterval = setInterval(playClick, beatLength);
+    }
+
+    function toggleQuantize() {
+      quantizeOn = document.getElementById("quantizeToggle").checked;
+    }
+
+    // --- EXPORT AS WAV ---
+    async function exportLoopAsWav() {
+      if (!audioContext || baseNotes.length === 0) return;
+      const sampleRate = 44100;
+      // 1 channel, loopLength ms in seconds
+      const offline = new OfflineAudioContext(1, Math.ceil(loopLength * sampleRate / 1000), sampleRate);
+      // Preload all buffers in this context
+      const buffers = {};
+      for (const [path] of padPaths) {
+        buffers[path] = await loadSample(path);
+      }
+      buffers[metronomePath] = await loadSample(metronomePath);
+      // Schedule all notes
+      const allNotes = baseNotes.concat(...overdubLayers.map(l => l.notes));
+      for (let note of allNotes) {
+        const src = offline.createBufferSource();
+        src.buffer = buffers[note.path];
+        src.connect(offline.destination);
+        src.start(note.time / 1000);
+      }
+      // Render
+      const renderedBuffer = await offline.startRendering();
+      // Convert to WAV Blob
+      const wavBlob = audioBufferToWavBlob(renderedBuffer);
+      const url = URL.createObjectURL(wavBlob);
+      // Download
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "loop.wav";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // WAV encoder (minimal)
+    function audioBufferToWavBlob(buffer) {
+      const numOfChan = buffer.numberOfChannels;
+      const length = buffer.length * numOfChan * 2 + 44;
+      const bufferOut = new ArrayBuffer(length);
+      const view = new DataView(bufferOut);
+      function writeString(view, offset, string) {
+        for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
+      }
+      writeString(view, 0, 'RIFF'); view.setUint32(4, 36 + buffer.length * numOfChan * 2, true);
+      writeString(view, 8, 'WAVE'); writeString(view, 12, 'fmt '); view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true); view.setUint16(22, numOfChan, true);
+      view.setUint32(24, buffer.sampleRate, true); view.setUint32(28, buffer.sampleRate * numOfChan * 2, true);
+      view.setUint16(32, numOfChan * 2, true); view.setUint16(34, 16, true);
+      writeString(view, 36, 'data'); view.setUint32(40, buffer.length * numOfChan * 2, true);
+      // Write PCM
+      let offset = 44;
+      for (let i = 0; i < buffer.length; i++) {
+        for (let chan = 0; chan < numOfChan; chan++) {
+          let sample = buffer.getChannelData(chan)[i];
+          sample = Math.max(-1, Math.min(1, sample));
+          view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+          offset += 2;
+        }
+      }
+      return new Blob([view], { type: 'audio/wav' });
+    }
+
+    // --- MAIN INIT ---
+    window.onload = async () => {
+      createPadGrid();
+      await loadAllBuffers();
+      // On any pad/button click, unlock audio context (required on mobile)
+      document.body.addEventListener('pointerdown', () => {
+        if (!contextStarted && audioContext) { audioContext.resume(); contextStarted = true; }
+      }, { once: true });
+      // BUTTONS
+      document.getElementById("recordBtn").onclick = toggleRecording;
+      document.getElementById("playBtn").onclick = playLoop;
+      document.getElementById("stopBtn").onclick = stopLoop;
+      document.getElementById("overdubBtn").onclick = toggleOverdub;
+      document.getElementById("clearOverdubBtn").onclick = clearLastOverdub;
+      document.getElementById("quantizeToggle").onchange = toggleQuantize;
+      document.getElementById("metronomeToggle").onchange = toggleMetronome;
+      document.getElementById("saveBtn").onclick = exportLoopAsWav;
+    };
   </script>
 </body>
 </html>
