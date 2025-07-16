@@ -2,356 +2,105 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Drum Pad Looper</title>
-  <!-- Orbitron Font for a modern synth look -->
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+  <title>Looping Drum Pad with Save</title>
   <style>
-    body { 
-      font-family: 'Orbitron', Arial, sans-serif;
-      text-align: center; 
-      background: #181924; 
-      color: #fff;
-    }
-    h1 {
-      font-size: 3rem;
-      letter-spacing: 0.05em;
-      margin-top: 18px;
-      margin-bottom: 12px;
-      text-shadow: 0 3px 10px #222;
-    }
-    .drum-row {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 18px;
-      margin-bottom: 20px;
-    }
+    body { font-family: sans-serif; background: #111; color: white; text-align: center; padding: 20px; }
     button {
-      margin: 8px;
-      padding: 32px 34px;
-      font-size: 2.1rem;
-      font-family: 'Orbitron', Arial, sans-serif;
-      font-weight: 700;
-      border: none;
-      border-radius: 22px;
-      background: linear-gradient(145deg,#23244a 60%,#2731a2 100%);
-      color: #fff;
-      cursor: pointer;
-      transition: background 0.13s, box-shadow 0.2s, transform 0.07s;
-      box-shadow: 0 5px 24px #10102a88;
-      outline: none;
-      min-width: 140px;
-      min-height: 78px;
+      margin: 8px; padding: 15px 30px; font-size: 18px;
+      background: #444; color: white; border: none; border-radius: 8px; cursor: pointer;
     }
-    button:active {
-      background: linear-gradient(145deg,#11132d 80%,#1b2266 100%);
-      transform: scale(0.97);
-      box-shadow: 0 2px 10px #07081a99;
-    }
-    button:disabled {
-      background: #55556a;
-      color: #aaa;
-      cursor: not-allowed;
-    }
-    .controls {
-      margin-top: 10px; 
-      margin-bottom: 18px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
-      justify-content: center;
-    }
-    .toggles {
-      margin: 26px 0 10px 0;
-      font-size: 1.3rem;
-      letter-spacing: 0.01em;
-    }
-    label {
-      margin: 0 22px;
-      cursor: pointer;
-    }
-    #metronomeFlash {
-      margin: 20px auto 16px auto; 
-      width: 55px; height: 55px; 
-      border-radius: 50%; 
-      background: #34365a; 
-      box-shadow: 0 0 22px #35348e66;
-      transition: background 0.07s;
-    }
-    .info {
-      margin-top:18px;
-      color:#94a4c7;
-      font-size:16px;
-      letter-spacing: 0.02em;
-    }
+    button:hover { background: #666; }
+    #controls { margin-top: 30px; }
   </style>
 </head>
 <body>
-  <h1>Drum Pad Looper</h1>
-  <div id="metronomeFlash"></div>
-  <div class="drum-row">
-    <button onclick="playPad('sounds/kick1.mp3')">Kick 1</button>
-    <button onclick="playPad('sounds/kick2.mp3')">Kick 2</button>
-    <button onclick="playPad('sounds/snare1.mp3')">Snare 1</button>
-    <button onclick="playPad('sounds/snare2.mp3')">Snare 2</button>
-    <button onclick="playPad('sounds/hihat1.mp3')">HiHat 1</button>
-    <button onclick="playPad('sounds/hihat2.mp3')">HiHat 2</button>
-    <button onclick="playPad('sounds/kick3.mp3')">Kick 3</button>
-    <button onclick="playPad('sounds/kick4.mp3')">Kick 4</button>
-    <button onclick="playPad('sounds/snare3.mp3')">Snare 3</button>
-    <button onclick="playPad('sounds/705473__samanthamayirwin_music__e-minor-chord-piano2.mp3')">e minor</button>
-    <button onclick="playPad('sounds/705472__samanthamayirwin_music__d-major-chord-piano2.mp3')">D major</button>
-    <button onclick="playPad('sounds/g-major-chord-piano2.mp3')">g major</button>
+  <h1>🔁 Drum Pad with Loop Save</h1>
+
+  <div>
+    <button onclick="onPadClick('sounds/kick1.mp3')">Kick</button>
+    <button onclick="onPadClick('sounds/snare1.mp3')">Snare</button>
+    <button onclick="onPadClick('sounds/hihat1.mp3')">HiHat</button>
   </div>
-  <div class="controls">
-    <button id="recordBtn" onclick="toggleRecording()">Record</button>
-    <button onclick="playLoop()">Play Loop</button>
-    <button onclick="stopLoop()">Stop Loop</button>
-    <button id="overdubBtn" onclick="toggleOverdub()" disabled>Overdub</button>
-    <button id="clearOverdubBtn" onclick="clearLastOverdub()" disabled>Clear Last Overdub</button>
+
+  <div id="controls">
+    <button onclick="startRecording()">🎙️ Start Recording</button>
+    <button onclick="stopRecording()">🛑 Stop Recording</button>
+    <button onclick="startLoop()">▶️ Play Loop</button>
+    <button onclick="stopLoop()">⏹ Stop Loop</button>
+    <button onclick="saveLoop()">💾 Save Loop</button>
+    <button onclick="loadLoop()">📂 Load Loop</button>
+    <button onclick="clearSavedLoop()">❌ Clear Saved Loop</button>
   </div>
-  <div class="toggles">
-    <label><input type="checkbox" id="metronomeToggle" onchange="toggleMetronome()"> Metronome</label>
-    <label><input type="checkbox" id="quantizeToggle" onchange="toggleQuantize()"> Quantize</label>
-  </div>
-  <div class="info">
-    Metronome sound: <b>sounds/191958__seidhepriest__metronome-tick-bellish.wav</b><br>
-    Quantize grid: <b>8th notes</b> (change <code>quantizeDivision</code> in code if you want another grid)
-  </div>
-<script>
-  // --- SETTINGS ---
-  let quantizeDivision = 8; // quantize grid: 8 for eighths, 16 for sixteenths
 
-  // --- State ---
-  let isRecording = false;
-  let recordedNotes = [];
-  let recordStart = 0;
-  let loopInterval = null;
-  let loopLength = 0;
-  let isLooping = false;
-  let isOverdubbing = false;
-  let overdubStart = 0;
-  let metronomeOn = false;
-  let quantizeOn = false;
-  let metronomeInterval = null;
+  <script>
+    const BPM = 120;
+    const beatsPerLoop = 16;
+    const interval = (60 / BPM) * 1000;
+    let loopData = Array.from({ length: beatsPerLoop }, () => []);
+    let currentBeat = 0;
+    let isRecording = false;
+    let loopInterval = null;
 
-  // For undo: overdubs stored as layers
-  let overdubLayers = []; // array of {notes: [...]}
-  let baseNotes = [];     // original sequence
-
-  // Keep track of ALL timeouts (drum hits)
-  let activeTimeouts = [];
-
-  // --- PRELOAD ALL SAMPLES ---
-  const padPaths = [
-    'sounds/kick1.mp3',
-    'sounds/kick2.mp3',
-    'sounds/snare1.mp3',
-    'sounds/snare2.mp3',
-    'sounds/hihat1.mp3',
-    'sounds/hihat2.mp3',
-    'sounds/kick3.mp3',
-    'sounds/kick4.mp3',
-    'sounds/snare3.mp3',
-    'sounds/705473__samanthamayirwin_music__e-minor-chord-piano2.mp3',
-    'sounds/705472__samanthamayirwin_music__d-major-chord-piano2.mp3',
-    'sounds/g-major-chord-piano2.mp3',
-    'sounds/191958__seidhepriest__metronome-tick-bellish.wav'
-  ];
-
-  const audioBuffers = {};
-  for (const path of padPaths) {
-    const audio = new Audio(path);
-    audio.load();
-    audioBuffers[path] = audio;
-  }
-
-  function playPad(path) {
-    // Always create a clone so overlapping hits work!
-    if (audioBuffers[path]) {
-      const clone = audioBuffers[path].cloneNode(true);
-      clone.play();
-    } else {
+    function playSound(path) {
       const audio = new Audio(path);
       audio.play();
     }
 
-    // RECORD mode (initial take) - Only record if NOT metronome
-    if (isRecording) {
-      if (!path.includes('metronome')) {
-        const now = Date.now();
-        let noteTime = now - recordStart;
-        if (quantizeOn) {
-          noteTime = quantizeTime(noteTime, loopLength);
-        }
-        recordedNotes.push({ path: path, time: noteTime });
+    function onPadClick(soundPath) {
+      playSound(soundPath);
+      if (isRecording) {
+        loopData[currentBeat].push(soundPath);
       }
     }
 
-    // OVERDUB mode
-    if (isOverdubbing && isLooping) {
-      if (!path.includes('metronome')) {
-        const now = Date.now();
-        let posInLoop = (now - overdubStart) % loopLength;
-        if (quantizeOn) {
-          posInLoop = quantizeTime(posInLoop, loopLength);
-        }
-        if (overdubLayers.length === 0) overdubLayers.push({notes:[]});
-        overdubLayers[overdubLayers.length-1].notes.push({ path: path, time: posInLoop });
-      }
+    function startRecording() {
+      isRecording = true;
+      currentBeat = 0;
+      loopData = Array.from({ length: beatsPerLoop }, () => []);
+      alert('Recording started');
     }
-  }
 
-  function quantizeTime(ms, length) {
-    if (length === 0) return ms;
-    const beat = length / quantizeDivision;
-    return Math.round(ms / beat) * beat;
-  }
-
-  function clearAllTimeouts() {
-    for (const t of activeTimeouts) clearTimeout(t);
-    activeTimeouts = [];
-  }
-
-  function toggleRecording() {
-    isRecording = !isRecording;
-    const btn = document.getElementById("recordBtn");
-    const overdubBtn = document.getElementById("overdubBtn");
-    const clearOverdubBtn = document.getElementById("clearOverdubBtn");
-    if (isRecording) {
-      recordedNotes = [];
-      baseNotes = [];
-      overdubLayers = [];
-      recordStart = Date.now();
-      btn.textContent = "Stop Recording";
-      overdubBtn.disabled = true;
-      clearOverdubBtn.disabled = true;
-      stopLoop();
-    } else {
-      btn.textContent = "Record";
-      if (recordedNotes.length) {
-        loopLength = recordedNotes[recordedNotes.length - 1].time + 500;
-        baseNotes = recordedNotes.slice();
-        overdubLayers = [];
-        overdubBtn.disabled = false;
-        clearOverdubBtn.disabled = false;
-      }
+    function stopRecording() {
+      isRecording = false;
+      alert('Recording stopped');
     }
-  }
 
-  function playLoop() {
-    if (baseNotes.length === 0) return;
-    stopLoop();
-    isLooping = true;
-    overdubStart = Date.now();
-    playFullNotes();
-    loopInterval = setInterval(() => {
-      overdubStart = Date.now();
-      playFullNotes();
-    }, loopLength);
-  }
-
-  function stopLoop() {
-    if (loopInterval) clearInterval(loopInterval);
-    loopInterval = null;
-    isLooping = false;
-    isOverdubbing = false;
-    document.getElementById("overdubBtn").textContent = "Overdub";
-    clearAllTimeouts();
-    // Don't stop the metronome here! It's independent now
-    const flash = document.getElementById("metronomeFlash");
-    if (flash) flash.style.background = "#34365a";
-  }
-
-  function playFullNotes() {
-    const allNotes = baseNotes.concat(...overdubLayers.map(l => l.notes));
-    for (let note of allNotes) {
-      const t = setTimeout(() => { playPad(note.path); }, note.time);
-      activeTimeouts.push(t);
+    function startLoop() {
+      stopLoop(); // reset if running
+      loopInterval = setInterval(() => {
+        playBeat(currentBeat);
+        currentBeat = (currentBeat + 1) % beatsPerLoop;
+      }, interval);
     }
-  }
 
-  function toggleOverdub() {
-    if (!isLooping) return;
-    isOverdubbing = !isOverdubbing;
-    const overdubBtn = document.getElementById("overdubBtn");
-    if (isOverdubbing) {
-      overdubBtn.textContent = "Stop Overdub";
-      overdubLayers.push({notes:[]});
-      overdubStart = Date.now();
-    } else {
-      overdubBtn.textContent = "Overdub";
-      overdubLayers = overdubLayers.filter(l => l.notes.length > 0);
+    function stopLoop() {
+      clearInterval(loopInterval);
+      currentBeat = 0;
     }
-  }
 
-  function clearLastOverdub() {
-    if (overdubLayers.length > 0) {
-      overdubLayers.pop();
-      if (isLooping) {
-        stopLoop();
-        playLoop();
-      }
+    function playBeat(index) {
+      loopData[index].forEach(soundPath => playSound(soundPath));
     }
-  }
 
-  // --- METRONOME IS NOW FULLY INDEPENDENT ---
-  function toggleMetronome() {
-    metronomeOn = document.getElementById("metronomeToggle").checked;
-    if (metronomeOn) {
-      startMetronome();
-    } else {
-      if (metronomeInterval) clearInterval(metronomeInterval);
-      metronomeInterval = null;
-      const flash = document.getElementById("metronomeFlash");
-      if (flash) flash.style.background = "#34365a";
+    function saveLoop() {
+      localStorage.setItem("savedLoop", JSON.stringify(loopData));
+      alert("Loop saved!");
     }
-  }
 
-  function startMetronome() {
-    if (metronomeInterval) clearInterval(metronomeInterval);
-    // If we have a loopLength (from last recording), sync metronome to that grid
-    // Otherwise, use 85bpm as default grid
-    let beatLength = 0;
-    if (loopLength && loopLength > 0) {
-      beatLength = loopLength / quantizeDivision;
-    } else {
-      // Default: 85 bpm 16th notes = 125ms per 16th
-      beatLength = 125;
-    }
-    function playClick() {
-      if (!metronomeOn) return;
-      const clickPath = 'sounds/191958__seidhepriest__metronome-tick-bellish.wav';
-      if (audioBuffers[clickPath]) {
-        const clickClone = audioBuffers[clickPath].cloneNode(true);
-        clickClone.play();
+    function loadLoop() {
+      const saved = localStorage.getItem("savedLoop");
+      if (saved) {
+        loopData = JSON.parse(saved);
+        alert("Loop loaded!");
       } else {
-        const audio = new Audio(clickPath);
-        audio.play();
-      }
-      // Visual flash
-      const flash = document.getElementById("metronomeFlash");
-      if (flash) {
-        flash.style.background = "#e0e000";
-        setTimeout(() => { flash.style.background = "#34365a"; }, 90);
+        alert("No saved loop found.");
       }
     }
-    playClick();
-    metronomeInterval = setInterval(playClick, beatLength);
-  }
 
-  function toggleQuantize() {
-    quantizeOn = document.getElementById("quantizeToggle").checked;
-  }
-</script>
-
-<hr>
-<form action="mailto:stephenwyrzykowski@gmail.com" method="POST" enctype="text/plain" style="margin:40px auto 20px auto; max-width:460px; background:#23244a; padding:32px 28px; border-radius:18px; color:#fff; box-shadow:0 2px 16px #23244a88; font-size:1.12rem;">
-  <h2 style="font-family:Orbitron,Arial,sans-serif;margin-bottom:8px;">Suggest Drum Sounds</h2>
-  <label for="remove" style="display:block;margin:8px 0 2px;">What sound should I <b>remove</b>?</label>
-  <input type="text" id="remove" name="Remove" style="width:100%;padding:9px;border-radius:7px;border:1px solid #3c3d70;margin-bottom:15px;">
-  <label for="add" style="display:block;margin:8px 0 2px;">What sound should I <b>add</b>?</label>
-  <input type="text" id="add" name="Add" style="width:100%;padding:9px;border-radius:7px;border:1px solid #3c3d70;margin-bottom:20px;">
-  <button type="submit" style="font-size:1.15rem;padding:11px 24px;border-radius:8px;background:#3a53d1;color:#fff;border:none;font-family:Orbitron,Arial,sans-serif;cursor:pointer;">Send Suggestion</button>
-</form>
-
+    function clearSavedLoop() {
+      localStorage.removeItem("savedLoop");
+      alert("Saved loop cleared.");
+    }
+  </script>
+</body>
+</html>
