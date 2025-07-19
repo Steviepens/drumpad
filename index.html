@@ -213,7 +213,7 @@
 
     function startMetronome() {
       if (metronomeInterval) clearInterval(metronomeInterval);
-      let beatLength = (loopLength && loopLength > 0) ? loopLength / quantizeDivision : 125;
+      let beatLength = (loopLength && loopLength > 0) ? loopLength / quantizeDivision : 85;
       function playClick() {
         if (!metronomeOn) return;
         playPad(metronomePath);
