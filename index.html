@@ -134,7 +134,7 @@
       ['sounds/snare3.mp3', 'Snare 3'],
       ['sounds/705473__samanthamayirwin_music__e-minor-chord-piano2.mp3', 'Emin'],
       ['sounds/705472__samanthamayirwin_music__d-major-chord-piano2.mp3', 'Dmaj'],
-      ['sounds/705474__samanthamayirwin_music__g-major-chord-piano2.mp3', 'Gmaj'],
+      ['sounds/g-major-chord-piano2.mp3', 'Gmaj'],
     ];
 
     const metronomePath = 'sounds/191958__seidhepriest__metronome-tick-bellish.wav';
@@ -210,3 +210,195 @@
       const btn = document.getElementById("recordBtn");
       const overdubBtn = document.getElementById("overdubBtn");
       const clearOverdubBtn = document.getElementById("clearOverdubBtn");
+      if (isRecording) {
+        recordedNotes = [];
+        baseNotes = [];
+        overdubLayers = [];
+        recordStart = Date.now();
+        btn.textContent = "Stop Recording";
+        overdubBtn.disabled = true;
+        clearOverdubBtn.disabled = true;
+        stopLoop();
+      } else {
+        btn.textContent = "Record";
+        if (recordedNotes.length) {
+          loopLength = bpmToMs(bpm, quantizeDivision) * quantizeDivision;
+          baseNotes = recordedNotes.slice();
+          overdubLayers = [];
+          overdubBtn.disabled = false;
+          clearOverdubBtn.disabled = false;
+        }
+      }
+    }
+
+    function playLoop() {
+      if (baseNotes.length === 0) return;
+      stopLoop();
+      isLooping = true;
+      overdubStart = Date.now();
+      playFullNotes();
+      loopInterval = setInterval(() => {
+        overdubStart = Date.now();
+        playFullNotes();
+      }, loopLength);
+    }
+
+    function stopLoop() {
+      if (loopInterval) clearInterval(loopInterval);
+      loopInterval = null;
+      isLooping = false;
+      isOverdubbing = false;
+      document.getElementById("overdubBtn").textContent = "Overdub";
+      clearAllTimeouts();
+      document.getElementById("metronomeFlash").style.background = "#34365a";
+    }
+
+    function playFullNotes() {
+      const allNotes = baseNotes.concat(...overdubLayers.map(l => l.notes));
+      for (let note of allNotes) {
+        const t = setTimeout(() => { playPad(note.path); }, note.time);
+        activeTimeouts.push(t);
+      }
+    }
+
+    function toggleOverdub() {
+      if (!isLooping) return;
+      isOverdubbing = !isOverdubbing;
+      const overdubBtn = document.getElementById("overdubBtn");
+      if (isOverdubbing) {
+        overdubBtn.textContent = "Stop Overdub";
+        overdubLayers.push({notes:[]});
+        overdubStart = Date.now();
+      } else {
+        overdubBtn.textContent = "Overdub";
+        overdubLayers = overdubLayers.filter(l => l.notes.length > 0);
+      }
+    }
+
+    function clearLastOverdub() {
+      if (overdubLayers.length > 0) {
+        overdubLayers.pop();
+        if (isLooping) { stopLoop(); playLoop(); }
+      }
+    }
+
+    function toggleMetronome() {
+      metronomeOn = document.getElementById("metronomeToggle").checked;
+      if (metronomeOn) {
+        startMetronome();
+      } else {
+        if (metronomeInterval) clearInterval(metronomeInterval);
+        metronomeInterval = null;
+        document.getElementById("metronomeFlash").style.background = "#34365a";
+      }
+    }
+
+    function startMetronome() {
+      if (metronomeInterval) clearInterval(metronomeInterval);
+      let beatLength = bpmToMs(bpm, quantizeDivision);
+      function playClick() {
+        if (!metronomeOn) return;
+        playPad(metronomePath);
+        const flash = document.getElementById("metronomeFlash");
+        flash.style.background = "#e0e000";
+        setTimeout(() => { flash.style.background = "#34365a"; }, 90);
+      }
+      playClick();
+      metronomeInterval = setInterval(playClick, beatLength);
+    }
+
+    function toggleQuantize() {
+      quantizeOn = document.getElementById("quantizeToggle").checked;
+    }
+
+    async function exportLoopAsWav() {
+      if (!audioContext || baseNotes.length === 0) return;
+      const sampleRate = 44100;
+      const offline = new OfflineAudioContext(1, Math.ceil(loopLength * sampleRate / 1000), sampleRate);
+      const buffers = {};
+      for (const [path] of padPaths) buffers[path] = await loadSample(path);
+      buffers[metronomePath] = await loadSample(metronomePath);
+      const allNotes = baseNotes.concat(...overdubLayers.map(l => l.notes));
+      for (let note of allNotes) {
+        const src = offline.createBufferSource();
+        src.buffer = buffers[note.path];
+        src.connect(offline.destination);
+        src.start(note.time / 1000);
+      }
+      const renderedBuffer = await offline.startRendering();
+      const wavBlob = audioBufferToWavBlob(renderedBuffer);
+      const url = URL.createObjectURL(wavBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "loop.wav";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function audioBufferToWavBlob(buffer) {
+      const numOfChan = buffer.numberOfChannels;
+      const length = buffer.length * numOfChan * 2 + 44;
+      const bufferOut = new ArrayBuffer(length);
+      const view = new DataView(bufferOut);
+      function writeString(view, offset, string) {
+        for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
+      }
+      writeString(view, 0, 'RIFF'); view.setUint32(4, 36 + buffer.length * numOfChan * 2, true);
+      writeString(view, 8, 'WAVE'); writeString(view, 12, 'fmt '); view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true); view.setUint16(22, numOfChan, true);
+      view.setUint32(24, buffer.sampleRate, true); view.setUint32(28, buffer.sampleRate * numOfChan * 2, true);
+      view.setUint16(32, numOfChan * 2, true); view.setUint16(34, 16, true);
+      writeString(view, 36, 'data'); view.setUint32(40, buffer.length * numOfChan * 2, true);
+      let offset = 44;
+      for (let i = 0; i < buffer.length; i++) {
+        for (let chan = 0; chan < numOfChan; chan++) {
+          let sample = buffer.getChannelData(chan)[i];
+          sample = Math.max(-1, Math.min(1, sample));
+          view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+          offset += 2;
+        }
+      }
+      return new Blob([view], { type: 'audio/wav' });
+    }
+
+    window.onload = async () => {
+      document.querySelectorAll("button").forEach(btn => btn.disabled = true);
+      createPadGrid();
+      await loadAllBuffers();
+      document.body.addEventListener('pointerdown', () => {
+        if (!contextStarted && audioContext) {
+          audioContext.resume();
+          contextStarted = true;
+        }
+      }, { once: true });
+      document.getElementById("recordBtn").onclick = toggleRecording;
+      document.getElementById("playBtn").onclick = playLoop;
+      document.getElementById("stopBtn").onclick = stopLoop;
+      document.getElementById("overdubBtn").onclick = toggleOverdub;
+      document.getElementById("clearOverdubBtn").onclick = clearLastOverdub;
+      document.getElementById("quantizeToggle").onchange = toggleQuantize;
+      document.getElementById("metronomeToggle").onchange = toggleMetronome;
+      document.getElementById("saveBtn").onclick = exportLoopAsWav;
+
+      const bpmSlider = document.getElementById("bpmSlider");
+      const bpmInput = document.getElementById("bpmInput");
+      function updateBpm(val) {
+        bpm = parseInt(val);
+        bpmSlider.value = bpm;
+        bpmInput.value = bpm;
+        if (metronomeOn) startMetronome();
+        if (isLooping) {
+          stopLoop();
+          playLoop();
+        }
+      }
+      bpmSlider.oninput = (e) => updateBpm(e.target.value);
+      bpmInput.onchange = (e) => updateBpm(e.target.value);
+
+      document.querySelectorAll("button").forEach(btn => btn.disabled = false);
+    };
+  </script>
+</body>
+</html>
